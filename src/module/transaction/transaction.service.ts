@@ -6,12 +6,14 @@ import { TransactionDto } from './dto/transaction.dto';
 import { TransactionType } from './transaction.types';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { InternalAccountService } from '../../internal/account.service';
 
 @Injectable()
 export class TransactionService {
   constructor(
     private readonly transactionRepository: TransactionRepository,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly internalAccountService: InternalAccountService,
   ) {}
 
   async create(createTransactionDto: CreateTransactionDto): Promise<void> {
@@ -20,6 +22,12 @@ export class TransactionService {
     if (transactionType == TransactionType.TRANSFER && recipient) {
       return this.createTransferTransaction(createTransactionDto);
     }
+
+    await this.internalAccountService.changeBalance({
+      userId,
+      transactionType,
+      balance: amount,
+    });
 
     await this.transactionRepository.create({
       userId,
@@ -43,10 +51,22 @@ export class TransactionService {
         type: transactionType,
       });
 
+      await this.internalAccountService.changeBalance({
+        userId,
+        transactionType: TransactionType.WITHDRAWAL,
+        balance: amount,
+      });
+
       await this.transactionRepository.create({
         userId: recipient,
         amount: amount,
         type: transactionType,
+      });
+
+      await this.internalAccountService.changeBalance({
+        userId,
+        transactionType: TransactionType.DEPOSIT,
+        balance: amount,
       });
 
       await queryRunner.commitTransaction();
