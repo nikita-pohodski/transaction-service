@@ -1,0 +1,14 @@
+name: Transaction
+on: workflow_dispatch
+jobs: 
+  stage_dev:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get code
+        uses: actions/checkout@v3.5.3
+      - name: install deps
+        run: npm ci
+      - name: lint
+        run: npm run lint
+      - name: unit-test
+        run: npm run test
