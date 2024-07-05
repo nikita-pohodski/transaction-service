@@ -3,10 +3,18 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { TransactionRepository } from './transaction.repository';
 import { GetTransactionFilterDto } from './dto/get-transaction-filter.dto';
 import { TransactionDto } from './dto/transaction.dto';
-import { TransactionType } from './transaction.types';
+import {
+  BalanceChangedStatus,
+  EventBalanceChangedData,
+  EventNameEnum,
+  EventTransactionSavedData,
+  TransactionStatus,
+  TransactionType,
+} from './transaction.types';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { InternalAccountService } from '../../internal/account.service';
+import { KafkaService } from '../../config/kafka/kafka.service';
 
 @Injectable()
 export class TransactionService {
@@ -14,6 +22,7 @@ export class TransactionService {
     private readonly transactionRepository: TransactionRepository,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly internalAccountService: InternalAccountService,
+    private readonly kafkaService: KafkaService,
   ) {}
 
   async create(createTransactionDto: CreateTransactionDto): Promise<void> {
@@ -23,16 +32,22 @@ export class TransactionService {
       return this.createTransferTransaction(createTransactionDto);
     }
 
-    await this.internalAccountService.changeBalance({
-      userId,
-      transactionType,
-      balance: amount,
-    });
-
-    await this.transactionRepository.create({
+    const transactionEntity = await this.transactionRepository.create({
       userId,
       amount,
       type: transactionType,
+    });
+
+    const data: EventTransactionSavedData = {
+      userId,
+      amount,
+      transactionId: transactionEntity.id,
+      transactionType,
+    };
+
+    this.kafkaService.produce({
+      eventName: EventNameEnum.TransactionSaved,
+      data,
     });
   }
 
@@ -41,41 +56,55 @@ export class TransactionService {
   ): Promise<void> {
     const { amount, transactionType, userId, recipient } = createTransactionDto;
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.startTransaction('READ COMMITTED');
+    const transactionWithdrawal = await this.transactionRepository.create({
+      userId,
+      amount: '-' + amount,
+      type: transactionType,
+    });
 
-    try {
-      await this.transactionRepository.create({
-        userId,
-        amount: '-' + amount,
-        type: transactionType,
-      });
+    const dataWithdrawal: EventTransactionSavedData = {
+      userId,
+      amount,
+      transactionId: transactionWithdrawal.id,
+      transactionType: TransactionType.WITHDRAWAL,
+    };
 
-      await this.internalAccountService.changeBalance({
-        userId,
-        transactionType: TransactionType.WITHDRAWAL,
-        balance: amount,
-      });
+    this.kafkaService.produce({
+      eventName: EventNameEnum.TransactionSaved,
+      data: dataWithdrawal,
+    });
 
-      await this.transactionRepository.create({
-        userId: recipient,
-        amount: amount,
-        type: transactionType,
-      });
+    const transactionDeposit = await this.transactionRepository.create({
+      userId: recipient,
+      amount: amount,
+      type: transactionType,
+    });
 
-      await this.internalAccountService.changeBalance({
-        userId,
-        transactionType: TransactionType.DEPOSIT,
-        balance: amount,
-      });
+    const dataDeposit: EventTransactionSavedData = {
+      userId,
+      amount,
+      transactionId: transactionDeposit.id,
+      transactionType: TransactionType.DEPOSIT,
+    };
 
-      await queryRunner.commitTransaction();
-      await queryRunner.release();
-    } catch (error: unknown) {
-      await queryRunner.rollbackTransaction();
-      await queryRunner.release();
-      throw error;
+    this.kafkaService.produce({
+      eventName: EventNameEnum.TransactionSaved,
+      data: dataDeposit,
+    });
+  }
+
+  async updateStatus(params: EventBalanceChangedData): Promise<void> {
+    const { transactionId, status } = params;
+
+    let transactionStatus = TransactionStatus.COMPLETED;
+    if (status == BalanceChangedStatus.FAILED) {
+      transactionStatus = TransactionStatus.FAILED;
     }
+
+    await this.transactionRepository.updateStatus(
+      transactionId,
+      transactionStatus,
+    );
   }
 
   async findAll(filterDto: GetTransactionFilterDto): Promise<{

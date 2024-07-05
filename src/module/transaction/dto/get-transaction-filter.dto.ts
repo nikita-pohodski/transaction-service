@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
-import { TransactionType } from '../transaction.types';
+import { TransactionStatus, TransactionType } from '../transaction.types';
 
 export class GetTransactionFilterDto {
   @ApiProperty({
@@ -32,8 +32,18 @@ export class GetTransactionFilterDto {
     required: false,
     enum: TransactionType,
   })
+  @IsOptional()
   @IsEnum(TransactionType)
   readonly transactionType?: TransactionType;
+
+  @ApiProperty({
+    description: 'Transaction status',
+    required: false,
+    enum: TransactionStatus,
+  })
+  @IsOptional()
+  @IsEnum(TransactionStatus)
+  readonly status?: TransactionStatus;
 
   @ApiProperty({
     description: '',

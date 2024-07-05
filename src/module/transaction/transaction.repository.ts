@@ -2,7 +2,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { TransactionEntity } from './entities/transaction.entity';
 import { DeepPartial, Repository, SelectQueryBuilder } from 'typeorm';
 import { Injectable } from '@nestjs/common';
-import { FindTransactionParams } from './transaction.types';
+import { FindTransactionParams, TransactionStatus } from './transaction.types';
 
 @Injectable()
 export class TransactionRepository {
@@ -15,6 +15,10 @@ export class TransactionRepository {
     entity: T,
   ): Promise<TransactionEntity> {
     return this.transactionRepository.save(entity);
+  }
+
+  async updateStatus(id: string, status: TransactionStatus): Promise<void> {
+    await this.transactionRepository.update({ id }, { status });
   }
 
   async findById(id: string): Promise<TransactionEntity> {
@@ -42,19 +46,25 @@ export class TransactionRepository {
 
     if (params?.ids?.length) {
       query.andWhere(`${alias}.id in (:...ids)`, {
-        phones: params.ids,
+        ids: params.ids,
       });
     }
 
     if (params?.amounts?.length) {
       query.andWhere(`${alias}.amount in (:...amounts)`, {
-        phones: params.amounts,
+        amounts: params.amounts,
       });
     }
 
     if (params?.type) {
       query.andWhere(`${alias}.type = :type`, {
-        login: params.type,
+        type: params.type,
+      });
+    }
+
+    if (params?.status) {
+      query.andWhere(`${alias}.status = :status`, {
+        status: params.status,
       });
     }
 
