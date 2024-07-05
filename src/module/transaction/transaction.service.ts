@@ -11,8 +11,6 @@ import {
   TransactionStatus,
   TransactionType,
 } from './transaction.types';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 import { InternalAccountService } from '../../internal/account.service';
 import { KafkaService } from '../../config/kafka/kafka.service';
 
@@ -20,7 +18,6 @@ import { KafkaService } from '../../config/kafka/kafka.service';
 export class TransactionService {
   constructor(
     private readonly transactionRepository: TransactionRepository,
-    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly internalAccountService: InternalAccountService,
     private readonly kafkaService: KafkaService,
   ) {}
