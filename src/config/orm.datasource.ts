@@ -1,13 +1,13 @@
 import * as dotenv from 'dotenv';
-import { DataSource } from 'typeorm';
-import migrations from '../module/database/migrations';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { TransactionEntity } from '../module/transaction/entities/transaction.entity';
+import migrations from './../module/database/migrations';
 
 const ENV_FILE = '.env';
 
 dotenv.config({ path: ENV_FILE });
 
-export default new DataSource({
+const options: DataSourceOptions = {
   type: 'postgres',
   host: process.env.DB_HOST,
   username: process.env.DB_USERNAME,
@@ -19,4 +19,6 @@ export default new DataSource({
   migrations,
   migrationsRun: process.env.DB_MIGRATIONS_RUN === 'true',
   migrationsTableName: process.env.DB_MIGRATIONS_TABLE_NAME,
-});
+};
+
+export default new DataSource(options);
