@@ -32,8 +32,14 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image (main)
         run: |
           docker build -t book_all-transaction:latest .
           docker tag book_all-transaction:latest ${{ secrets.DOCKER_USERNAME }}/book_all-transaction:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/book_all-transaction:latest
+
+      - name: Build and push Docker image (migration)
+        run: |
+          docker build -f Dockerfile.migration -t book_all-transaction_migration:latest .
+          docker tag book_all-transaction_migration:latest ${{ secrets.DOCKER_USERNAME }}/book_all-transaction_migration:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/book_all-transaction_migration:latest
