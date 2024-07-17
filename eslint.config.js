@@ -4,6 +4,7 @@ const prettierPlugin = require('eslint-plugin-prettier');
 
 module.exports = [
   {
+    files: ['src/**/*.ts', 'apps/**/*.ts', 'libs/**/*.ts', 'test/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
